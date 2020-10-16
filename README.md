@@ -14,6 +14,11 @@ TODOS:
  - [ ] Improve code documentation and README
  - [ ] A simple script (maybe using Colab?) to run inference on own images.
 
+## Train
+
+1. Download image dataset of Celeba
+2. Processing image with `python preprocess_data.py`
+
 ## Acknowlegments
 The project was created for "Selected Topics in Image Processing" course in Ben Gurion University of the lecturer Yitzhak Yitzhaky.
 

@@ -1,10 +1,12 @@
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 import pandas as pd
 from glob import glob
 import numpy as np
 import matplotlib.pyplot as plt
 from functools import partial
-import os
+
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 IMG_SIZE = 160
 IMG_SHAPE = (IMG_SIZE, IMG_SIZE, 3)
@@ -57,28 +59,36 @@ def tf_dataset_from_paths(paths,flip=False,bs=128):
     return list_ds
 
 class TripletDataset:
-    def __init__(self,labels_per_batch,labels_per_image):
+    def __init__(self, labels_per_batch, labels_per_image):
         self.train_data = None
         self.val_data = None
         self.labels_per_image = labels_per_image
         self.labels_per_batch = labels_per_batch
         self.train_ds = None
         self.val_ds = None
-    def load_celeb_a_dataset(self,data_dir,csv_path,append=False,load_as_validation=False):
+    def load_celeb_a_dataset(self, data_dir, csv_path, append=False, load_as_validation=False):
         self.labels_per_image = self.labels_per_image
         #Prepare and load data for celeb_a dataset
-        data = pd.read_csv(csv_path,delimiter=' ',names=['filename','label'],index_col=0)
-        images = glob(data_dir + '*.jpg')
+        data = pd.read_csv(csv_path, delimiter=' ', names=['filename', 'label'], index_col=0)
+        #print(data)
+        #images = glob(data_dir + '*.jpg')
+        images = os.listdir(data_dir)
         if len(images)==0:
             print("Error loading images! please check path!")
         #Filter the data to only existing images
-        data = data.loc[[os.path.basename(x) for x in images]]
+        #data = data.loc[[os.path.basename(x) for x in images]]
+        #data = data.loc[[os.path.basename(x) for x in images]]
+        #print(data)
         #Set full path
         data.index = data_dir + data.index
+        #print(data)
         #Filter labels with less than min_labels_per_image
         labels_count = data['label'].value_counts()
+        #print(labels_count)
         low_label_count = labels_count[labels_count < self.labels_per_image]
-        data = data[~data['label'].isin(low_label_count.index)]
+        #print(data)
+        #print(low_label_count.index)
+        #data = data[~data['label'].isin(low_label_count.index)]
         #Catgorify the data
         if append:
             data.label = data.label.astype('category').cat.codes + 20000000
@@ -86,6 +96,7 @@ class TripletDataset:
             self.train_data.label = self.train_data.label.astype('category').cat.codes
         else:
             data.label = data.label.astype('category').cat.codes
+        #print(data)
         if load_as_validation:
             self.val_data = data
         else:
@@ -110,15 +121,18 @@ class TripletDataset:
         else:
             self.train_data = data
 
-    def split_train_val_data(self,val_split=0.2):
+    def split_train_val_data(self, val_split=0.2):
         np.random.seed(1234)
         rand_labels = np.random.permutation(self.train_data.label.nunique())
+        print(rand_labels)
         self.val_data = self.train_data[self.train_data.label.isin(rand_labels[:int(val_split*len(rand_labels))])]
+        print(self.val_data)
         self.train_data = self.train_data[self.train_data.label.isin(rand_labels[int(val_split*len(rand_labels)):])]
+        print(self.train_data)
 
-    def gen_tf_dataset(self,prepare_for_training=True,repeat=False,augment=True):
-        self.train_gen = partial(k_gen,df = self.train_data, k = self.labels_per_image)
-        self.val_gen = partial(k_gen,df = self.val_data,k = self.labels_per_image)
+    def gen_tf_dataset(self, prepare_for_training=True, repeat=False, augment=True):
+        self.train_gen = partial(k_gen, df = self.train_data, k = self.labels_per_image)
+        self.val_gen = partial(k_gen, df = self.val_data, k = self.labels_per_image)
 
         self.train_ds = tf.data.Dataset.from_generator(self.train_gen, (tf.string, tf.int32))
         self.val_ds = tf.data.Dataset.from_generator(self.val_gen, (tf.string, tf.int32))
